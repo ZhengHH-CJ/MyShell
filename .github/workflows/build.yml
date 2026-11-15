@@ -20,6 +20,7 @@ jobs:
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
           cd edk2
           source edksetup.sh
+          # 移除全局 -Werror，防止警告变报错
           sed -i 's/-Werror//g' Conf/tools_def.txt
           make -C BaseTools
 
@@ -27,18 +28,21 @@ jobs:
         run: |
           cd edk2
           FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
-          # 1. 补充头文件引用
-          sed -i '/#include "Shell.h"/a #include "ShellEnvVar.h"' $FILE_PATH
+          
+          # 1. 补充头文件引用 (确保在同一行插入，不破坏语法)
+          sed -i 's/#include "Shell.h"/#include "Shell.h"\n#include "ShellEnvVar.h"/' $FILE_PATH
+          
           # 2. 插入刷新缓存的函数调用
           sed -i '/StartStatus = gBS->StartImage (/a\      ShellEnvVarGetAllFromRuntime();' $FILE_PATH
           
-          # 3. 关键：注释掉 VariablePolicyDynamicCommand 模块，绕开报错
-          sed -i 's/^\(.*VariablePolicyDynamicCommand.*\)/# \1/' ShellPkg/ShellPkg.dsc
+          # 3. 直接删除报错的 VariablePolicyDynamicCommand 模块（安全，绝不破坏语法结构）
+          sed -i '/VariablePolicyDynamicCommand/d' ShellPkg/ShellPkg.dsc
 
       - name: 开始编译
         run: |
           cd edk2
           source edksetup.sh
+          # 指定使用系统默认的 GCC (即上面设置的 gcc-11)
           build -t GCC -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE
 
       - name: 提取最终成品
