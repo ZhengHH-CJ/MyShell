@@ -1,0 +1,50 @@
+name: Build UEFI Shell
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载官方源码
+        run: |
+          git clone --depth 1 --branch edk2-stable202608 https://github.com/tianocore/edk2.git
+          cd edk2
+          git submodule update --init --depth 1
+
+      - name: 自动修改代码
+        run: |
+          cd edk2
+          python3 -c "
+          file_path = 'ShellPkg/Application/Shell/ShellProtocol.c'
+          with open(file_path, 'r') as f: content = f.read()
+          target = 'StartStatus = gBS->StartImage (\n                           NewHandle,\n                           0,\n                           NULL\n                           );'
+          replacement = target + '\n\n      ShellEnvVarGetAllFromRuntime();\n'
+          if target in content:
+              content = content.replace(target, replacement)
+              with open(file_path, 'w') as f: f.write(content)
+              print('代码修改成功！')
+          else:
+              print('代码匹配失败！')
+              exit(1)
+          "
+
+      - name: 安装编译环境
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential uuid-dev iasl nasm python3
+          cd edk2
+          source edksetup.sh
+          make -C BaseTools
+
+      - name: 开始编译
+        run: |
+          cd edk2
+          source edksetup.sh
+          build -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE
+
+      - name: 提取最终成品
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shell.efi
+          path: edk2/Build/Shell/RELEASE_GCC5/X64/Shell.efi
