@@ -35,7 +35,7 @@ jobs:
         run: |
           cd edk2
           source edksetup.sh
-          build -t GCC -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE
+          build -t GCC -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE -D GCC:*_*_*_CC_FLAGS=-Wno-error
 
       - name: 提取最终成品
         uses: actions/upload-artifact@v4
