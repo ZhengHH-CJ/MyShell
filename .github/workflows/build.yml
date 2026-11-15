@@ -12,28 +12,27 @@ jobs:
           cd edk2
           git submodule update --init --recursive
 
-      - name: 修改代码与编译器配置
-        run: |
-          cd edk2
-          FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
-          
-          # 1. 补充头文件引用
-          sed -i '/#include "Shell.h"/a #include "ShellEnvVar.h"' $FILE_PATH
-          # 2. 插入刷新缓存的函数调用
-          sed -i '/StartStatus = gBS->StartImage (/a\      ShellEnvVarGetAllFromRuntime();' $FILE_PATH
-          
-          # 3. 终极杀招：直接修改底层的编译器配置文件，全局抹除 -Werror 警告报错
-          sed -i 's/-Werror//g' Conf/tools_def.txt
-
-      - name: 安装编译环境及降级GCC
+      - name: 安装编译环境与配置
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential uuid-dev iasl nasm python3 gcc-11 g++-11
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
           cd edk2
+          # 注意：这里必须先运行 edksetup.sh，它才会生成 Conf 目录
           source edksetup.sh
+          # 此时 tools_def.txt 已经生成，现在可以安全地删掉 -Werror 了
+          sed -i 's/-Werror//g' Conf/tools_def.txt
           make -C BaseTools
+
+      - name: 自动修改代码
+        run: |
+          cd edk2
+          FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
+          # 1. 补充头文件引用
+          sed -i '/#include "Shell.h"/a #include "ShellEnvVar.h"' $FILE_PATH
+          # 2. 插入刷新缓存的函数调用
+          sed -i '/StartStatus = gBS->StartImage (/a\      ShellEnvVarGetAllFromRuntime();' $FILE_PATH
 
       - name: 开始编译
         run: |
