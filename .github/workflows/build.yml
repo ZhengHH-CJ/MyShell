@@ -19,13 +19,11 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
           cd edk2
-          # 注意：这里必须先运行 edksetup.sh，它才会生成 Conf 目录
           source edksetup.sh
-          # 此时 tools_def.txt 已经生成，现在可以安全地删掉 -Werror 了
           sed -i 's/-Werror//g' Conf/tools_def.txt
           make -C BaseTools
 
-      - name: 自动修改代码
+      - name: 自动修改代码与配置文件
         run: |
           cd edk2
           FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
@@ -33,6 +31,9 @@ jobs:
           sed -i '/#include "Shell.h"/a #include "ShellEnvVar.h"' $FILE_PATH
           # 2. 插入刷新缓存的函数调用
           sed -i '/StartStatus = gBS->StartImage (/a\      ShellEnvVarGetAllFromRuntime();' $FILE_PATH
+          
+          # 3. 关键：注释掉 VariablePolicyDynamicCommand 模块，绕开报错
+          sed -i 's/^\(.*VariablePolicyDynamicCommand.*\)/# \1/' ShellPkg/ShellPkg.dsc
 
       - name: 开始编译
         run: |
