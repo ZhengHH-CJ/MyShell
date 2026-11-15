@@ -10,7 +10,7 @@ jobs:
         run: |
           git clone --depth 1 --branch edk2-stable202608 https://github.com/tianocore/edk2.git
           cd edk2
-          git submodule update --init --depth 1
+          git submodule update --init --recursive --depth 1
 
       - name: 自动修改代码
         run: |
