@@ -20,29 +20,24 @@ jobs:
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
           cd edk2
           source edksetup.sh
-          # 移除全局 -Werror，防止警告变报错
+          # 移除全局 -Werror 警告拦截，这会自动解决 VariablePolicyDynamicCommand 的报错
           sed -i 's/-Werror//g' Conf/tools_def.txt
           make -C BaseTools
 
-      - name: 自动修改代码与配置文件
+      - name: 自动修改核心代码
         run: |
           cd edk2
           FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
           
-          # 1. 补充头文件引用 (确保在同一行插入，不破坏语法)
-          sed -i 's/#include "Shell.h"/#include "Shell.h"\n#include "ShellEnvVar.h"/' $FILE_PATH
-          
-          # 2. 插入刷新缓存的函数调用
-          sed -i '/StartStatus = gBS->StartImage (/a\      ShellEnvVarGetAllFromRuntime();' $FILE_PATH
-          
-          # 3. 直接删除报错的 VariablePolicyDynamicCommand 模块（安全，绝不破坏语法结构）
-          sed -i '/VariablePolicyDynamicCommand/d' ShellPkg/ShellPkg.dsc
+          # 使用 EDK2 官方原生的函数来清空并重新加载环境变量
+          # 精确插在 StartImageStatus 赋值之后
+          sed -i '/\*StartImageStatus = StartStatus;/a\      ShellFreeEnvVarList();\n      ShellInitEnvVarList();' $FILE_PATH
 
       - name: 开始编译
         run: |
           cd edk2
           source edksetup.sh
-          # 指定使用系统默认的 GCC (即上面设置的 gcc-11)
+          # 指定使用 GCC 编译器
           build -t GCC -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE
 
       - name: 提取最终成品
