@@ -20,25 +20,38 @@ jobs:
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
           cd edk2
           source edksetup.sh
-          # 移除全局 -Werror 警告拦截，这会自动解决 VariablePolicyDynamicCommand 的报错
           sed -i 's/-Werror//g' Conf/tools_def.txt
           make -C BaseTools
 
-      - name: 自动修改核心代码
+      - name: 安全修改代码（使用Python脚本）
         run: |
           cd edk2
-          FILE_PATH="ShellPkg/Application/Shell/ShellProtocol.c"
-          
-          # 使用 EDK2 官方原生的函数来清空并重新加载环境变量
-          # 精确插在 StartImageStatus 赋值之后
-          sed -i '/\*StartImageStatus = StartStatus;/a\      ShellFreeEnvVarList();\n      ShellInitEnvVarList();' $FILE_PATH
+          python3 -c "
+          file_path = 'ShellPkg/Application/Shell/ShellProtocol.c'
+          with open(file_path, 'r', encoding='utf-8') as f:
+              content = f.read()
+          insert_code = '\n      ShellFreeEnvVarList();\n      ShellInitEnvVarList();\n'
+          target = '*StartImageStatus = StartStatus;'
+          if target in content:
+              content = content.replace(target, target + insert_code)
+              print('代码注入成功！')
+          else:
+              print('未找到注入点，编译可能会失败')
+          with open(file_path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          "
 
       - name: 开始编译
         run: |
           cd edk2
           source edksetup.sh
-          # 指定使用 GCC 编译器
           build -t GCC -a X64 -p ShellPkg/ShellPkg.dsc -b RELEASE
+
+      # 下面这两步是修复找不到文件的关键！
+      - name: 自动寻找并搬运文件
+        run: |
+          # 在整个 Build 目录里搜索 Shell.efi，找到后复制到当前工作目录
+          find edk2/Build -name "Shell.efi" -exec cp {} ./Shell.efi \;
 
       - name: 提取最终成品
         uses: actions/upload-artifact@v4
