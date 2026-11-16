@@ -44,4 +44,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Shell.efi
-          path: edk2/Build/Shell/RELEASE_GCC/X64/Shell.efi
+          path: Shell.efi
